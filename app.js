@@ -1,10 +1,6 @@
-var express = require('express');
-var http = require('http');
-var app = express();
+var mongoose = require('mongoose'),
+    data = require('./data');
 
-http.createServer(function(req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.write('hi, server');
-  res.end();
-}).listen(3000);
-console.log('Listening on port 3000...');
+// mongodb connect
+mongoose.connect('mongodb://60132263:dutls123@ds061984.mlab.com:61984/surveyna');
+mongoose.connection.on('error', console.log);
