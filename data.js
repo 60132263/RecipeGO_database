@@ -4,262 +4,186 @@ var Recipe_order = require('./models/Recipe_order');
 var Recipe_ingredient = require('./models/Recipe_ingredient');
 var fs = require('fs');
 var obj = [];
-var id = [];
+var temp = [];
+
+// insert recipe_name function
+function saveRecipeName(name, img, field, amount) {
+  var recipe_name = new Recipe_name({
+    name: name,
+    img: img,
+    field: field,
+    amount: amount
+  });
+  recipe_name.save(function(error) {
+    if(error) {
+      console.log(error);
+    } else {
+      console.log('save recipe_name: '+name);
+    }
+  });
+}
+
+// insert ingredient function
+function saveIngredient(name) {
+  var ingredient = new Ingredient({
+    name: name
+  });
+  Ingredient.findOneAndUpdate({name: name}, ingredient, {upsert: true}, function(error) {
+    if(error) {
+      console.log(error);
+    } else {
+      console.log('save ingredient: '+name);
+    }
+  });
+}
+function loopMainIngredient(i, data, callback) {
+  if(i < data.main.length) {
+    saveIngredient(data.main[i]);
+    loopMainIngredient(i+1, data);
+  }
+}
+function loopSubIngredient(i, data, callback) {
+  if(i < data.sub.length) {
+    saveIngredient(data.sub[i]);
+    loopSubIngredient(i+1, data);
+  }
+}
+function loopSeasonIngredient(i, data, callback) {
+  if(i < data.season.length) {
+    saveIngredient(data.season[i]);
+    loopSeasonIngredient(i+1, data);
+  }
+}
+
+// insert recipe_order function
+function saveRecipeOrder(id, number, order) {
+  var recipe_order = new Recipe_order({
+    recipe_id: id,
+    order_number: number,
+    order: order.replace('\r\n',"")
+  });
+  recipe_order.save(function(error){
+    if(error) {
+      console.log(error);
+    } else {
+      console.log('save '+id+' order: '+order.replace('\r\n',""));
+    }
+  });
+}
+function loopOrder(id, data, j, callback) {
+  if(j < data.recipe.length) {
+    saveRecipeOrder(id, j, data.recipe[j]);
+    loopOrder(id, data, j+1);
+  }
+}
+
+// insert recipe_ingredient function
+function saveIngredient_R(recipe_id, ingredient_id, type, data) {
+  var recipe_ingredient = new Recipe_ingredient({
+    recipe_id: recipe_id,
+    ingredient_id: ingredient_id,
+    ingredient_type: type,
+    ingredient_amount: data.replace(', ',"").replace(' ',"")
+  });
+  recipe_ingredient.save(function(error){
+    if(error) {
+      console.log(error);
+    } else {
+      console.log('save '+recipe_id+' ingredient '+ingredient_id+': '+data.replace(', ',"").replace(' ',""));
+    }
+  });
+}
+function loopMainIngredient_R(recipe_id, data, j, callback) {
+  if(j < data.main.length) {
+    Ingredient.findOne({name: data.main[j]}, function(error, same){
+      if(error) {
+        console.log(error);
+      }
+      saveIngredient_R(recipe_id, same.id, 'main', data.main_a[j]);
+    });
+    loopMainIngredient_R(recipe_id, data, j+1);
+  }
+}
+function loopSubIngredient_R(recipe_id, data, j, callback) {
+  if(j < data.sub.length) {
+    Ingredient.findOne({name: data.sub[j]}, function(error, same){
+      if(error) {
+        console.log(error);
+      }
+      saveIngredient_R(recipe_id, same.id, 'sub', data.sub_a[j]);
+    });
+    loopSubIngredient_R(recipe_id, data, j+1);
+  }
+}
+function loopSeasonIngredient_R(recipe_id, data, j, callback) {
+  if(j < data.season.length) {
+    Ingredient.findOne({name: data.season[j]}, function(error, same){
+      if(error) {
+        console.log(error);
+      }
+      saveIngredient_R(recipe_id, same.id, 'season', data.season_a[j]);
+    });
+    loopSeasonIngredient_R(recipe_id, data, j+1);
+  }
+}
+
+// mappingId
+function mappingR_Id(data) {
+  Recipe_name.findOne({name: data.name}, function(error, same){
+    if(error) {
+      console.log(error);
+    }
+    loopOrder(same.id, data, 0);
+    loopMainIngredient_R(same.id, data, 0);
+    loopSubIngredient_R(same.id, data, 0);
+    loopSeasonIngredient_R(same.id, data, 0);
+  });
+}
+
+// insert base data (recipe_name, ingredient)
+function insert_base(obj, callback) {
+  for(var i in obj) {
+    saveRecipeName(obj[i].name, obj[i].img, obj[i].field, obj[i].amount);
+    loopMainIngredient(0, obj[i]);
+    loopSubIngredient(0, obj[i]);
+    loopSeasonIngredient(0, obj[i]);
+  }
+  callback();
+}
 
 fs.readFile('./items.json', 'utf8', function(error, data) {
   if(error) {
     console.log(error);
   } else {
 
+    // parse JSON data list
     var array = data.split("\n");
     for(var i=0; i < array.length-1; i++) {
-      obj[i] = JSON.parse(array[i]);
+      temp[i] = JSON.parse(array[i]);
     }
 
-    // // recipe_name
-    // for(var i=0; i<obj.length; i++) {
-    //   recipe = new Recipe_name({
-    //     name: obj[i].name,
-    //     img: obj[i].img,
-    //     field: obj[i].field,
-    //     amount: obj[i].amount
-    //   });
-    //   recipe.save(function(error) {
-    //     if(error) {
-    //       console.log(error);
-    //     } else {
-    //       console.log('save name');
-    //     }
-    //   });
-    // }
-    //
-    // // Ingredient
-    // function subLoop(i, j, callback) {
-    //   if(j < obj[i].sub.length) {
-    //     console.log('i: '+i+' j: '+j+' obj: '+obj[i].sub[j]);
-    //     Ingredient.findOne({name: obj[i].sub[j]}, function(error, same){
-    //       if(error) {
-    //         console.log(error);
-    //       }
-    //       // console.log(same);
-    //       // if(same === null) {
-    //         same = new Ingredient({
-    //           name: obj[i].sub[j]
-    //         });
-    //         same.save(function(error) {
-    //           if(error) {
-    //             console.log(error);
-    //           } else {
-    //             console.log('save sub');
-    //           }
-    //         });
-    //       // }
-    //     });
-    //     subLoop(i, j+1);
-    //   }
-    // }
-    // function mainLoop(i, j, callback) {
-    //   if(j < obj[i].main.length) {
-    //     console.log('i: '+i+' j: '+j+' obj: '+obj[i].main[j]);
-    //     Ingredient.findOne({name: obj[i].main[j]}, function(error, same){
-    //       if(error) {
-    //         console.log(error);
-    //       }
-    //       // console.log(same);
-    //       // if(same === null) {
-    //         same = new Ingredient({
-    //           name: obj[i].main[j]
-    //         });
-    //         same.save(function(error) {
-    //           if(error) {
-    //             console.log(error);
-    //           } else {
-    //             console.log('save main');
-    //           }
-    //         });
-    //       // }
-    //     });
-    //     mainLoop(i, j+1);
-    //   }
-    // }
-    // function seasonLoop(i, j, callback) {
-    //   if(j < obj[i].season.length) {
-    //     console.log('i: '+i+' j: '+j+' obj: '+obj[i].season[j]);
-    //     Ingredient.findOne({name: obj[i].season[j]}, function(error, same){
-    //       if(error) {
-    //         console.log(error);
-    //       }
-    //       // console.log(same);
-    //       // if(same === null) {
-    //         same = new Ingredient({
-    //           name: obj[i].season[j]
-    //         });
-    //         same.save(function(error) {
-    //           if(error) {
-    //             console.log(error);
-    //           } else {
-    //             console.log('save season');
-    //           }
-    //         });
-    //       // }
-    //     });
-    //     seasonLoop(i, j+1);
-    //   }
-    // }
-    // for(var i in obj) {
-    //   subLoop(i, 0, function(){
-    //     console.log('finish');
-    //   });
-    //   mainLoop(i, 0, function(){
-    //     console.log('finish');
-    //   });
-    //   seasonLoop(i, 0, function(){
-    //     console.log('finish');
-    //   });
-    // }
-
-    // // Ingredient x
-    // for(var i=0; i<obj.length; i++) {
-    //   for(var j=0; j<obj[i].sub.length; j++) {
-    //     console.log(obj[i].sub[j]);
-    //     var ingredient = new Ingredient({
-    //       name: obj[i].sub[j]
-    //     });
-    //     ingredient.save();
-    //   }
-    // }
-    //
-    // // Ingredient x
-    // function ingredientLoop(i, j, callback) {
-    //   if(j < obj[i].sub.length) {
-    //     console.log('i: '+i+' j: '+j+' obj: '+obj[i].sub[j]);
-    //     var ingredient = new Ingredient({
-    //       name: obj[i].sub[j]
-    //     });
-    //     ingredient.save();
-    //     ingredientLoop(i, j+1);
-    //   } else {
-    //
-    //   }
-    // }
-    // for(var i in obj) {
-    //   ingredientLoop(i, 0, function(){
-    //     console.log('Finish');
-    //   });
-    // }
-
-    // // Recipe_order
-    // function loopOrder(j, i, id, callback) {
-    //   if(j < obj[i].recipe.length) {
-    //     var recipe_order = new Recipe_order({
-    //       recipe_id: id,
-    //       order_number: j,
-    //       order: obj[i].recipe[j].replace('\r\n',"")
-    //     });
-    //     recipe_order.save(function(error){
-    //       if(error) {
-    //         console.log(error);
-    //       } else {
-    //         console.log('save order');
-    //       }
-    //     });
-    //     loopOrder(j+1, i, id);
-    //   }
-    // }
-
-    // Recipe_ingredient
-    function loopMainIngredient(j, i, r_id, callback) {
-      if(j < obj[i].main.length) {
-        Ingredient.findOne({name: obj[i].main[j]}, function(error, same){
-          if(error) {
-            console.log(error);
-          }
-          console.log('MainI_Id: '+same.id+' Main: '+same.name);
-          var recipe_ingredient = new Recipe_ingredient({
-            recipe_id: r_id,
-            ingredient_id: same.id,
-            ingredient_type: 'main',
-            ingredient_amount: obj[i].main_a[j].replace(', ',"").replace(' ',"")
-          });
-          recipe_ingredient.save(function(error){
-            if(error) {
-              console.log(error);
-            } else {
-              console.log('save main_i');
-            }
-          })
-        });
-        loopMainIngredient(j+1, i, r_id);
+    // if recipe name is duplicate, remove its list
+    for(var i in temp) {
+      var check = true;
+      if(i===0) {
+        obj[i]=temp[i];
       }
-    }
-    function loopSubIngredient(j, i, r_id, callback) {
-      if(j < obj[i].sub.length) {
-        Ingredient.findOne({name: obj[i].sub[j]}, function(error, same){
-          if(error) {
-            console.log(error);
-          }
-          console.log('SubI_Id: '+same.id+' Sub: '+same.name);
-          var recipe_ingredient = new Recipe_ingredient({
-            recipe_id: r_id,
-            ingredient_id: same.id,
-            ingredient_type: 'sub',
-            ingredient_amount: obj[i].sub_a[j].replace(', ',"").replace(' ',"")
-          });
-          recipe_ingredient.save(function(error){
-            if(error) {
-              console.log(error);
-            } else {
-              console.log('save sub_i');
-            }
-          })
-        });
-        loopSubIngredient(j+1, i, r_id);
+      for(var j in obj) {
+        if(temp[i].name===obj[j].name) {
+          check = false;
+        }
       }
-    }
-    function loopSeasonIngredient(j, i, r_id, callback) {
-      if(j < obj[i].season.length) {
-        Ingredient.findOne({name: obj[i].season[j]}, function(error, same){
-          if(error) {
-            console.log(error);
-          }
-          console.log('SeasonI_Id: '+same.id+' Season: '+same.name);
-          var recipe_ingredient = new Recipe_ingredient({
-            recipe_id: r_id,
-            ingredient_id: same.id,
-            ingredient_type: 'season',
-            ingredient_amount: obj[i].season_a[j].replace(', ',"").replace(' ',"")
-          });
-          recipe_ingredient.save(function(error){
-            if(error) {
-              console.log(error);
-            } else {
-              console.log('save season_i');
-            }
-          })
-        });
-        loopSeasonIngredient(j+1, i, r_id);
+      if(check!==false){
+        obj[obj.length] = temp[i];
       }
     }
 
-    // mappingId
-    function mappingR_Id(i, callback) {
-      if(i < obj.length) {
-        Recipe_name.findOne({name: obj[i].name}, function(error, same){
-          if(error) {
-            console.log(error);
-          }
-          console.log('R_Id: '+same.id);
-          // loopOrder(0, i, same.id);
-          loopMainIngredient(0, i, same.id);
-          loopSubIngredient(0, i, same.id);
-          loopSeasonIngredient(0, i, same.id);
-        });
-        mappingR_Id(i+1);
+    // insert data
+    insert_base(obj, function() {
+      for(var i in obj) {
+        mappingR_Id(obj[i]);
       }
-    }
-    mappingR_Id(0, function(){
-      console.log('finish');
-    });
+    })
 
   }
 });
