@@ -133,6 +133,12 @@ function mappingR_Id(data) {
     if(error) {
       console.log(error);
     }
+    same.order_count = data.recipe.length;
+    same.save(function(error) {
+      if(error) {
+        console.log('order_count save error: '+error);
+      }
+    });
     loopOrder(same.id, data, 0);
     loopMainIngredient_R(same.id, data, 0);
     loopSubIngredient_R(same.id, data, 0);
@@ -183,7 +189,7 @@ fs.readFile('./items.json', 'utf8', function(error, data) {
       for(var i in obj) {
         mappingR_Id(obj[i]);
       }
-    })
+    });
 
   }
 });
