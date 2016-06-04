@@ -45,7 +45,23 @@ function insertIngredient(recipe, j) {
 }
 
 // Recipe_ingredient콜렉션에 데이터를 넣어줌
-function insertRecipeIngredient(recipe, callback) {
+function insert(recipe_id, ingredient_id, ingredient) {
+  var recipe_ingredient = new Recipe_ingredient({
+    recipe_id: recipe_id,
+    ingredient_id: ingredient_id,
+    ingredient_amount: ingredient
+  });
+  recipe_ingredient.save(function(error){
+    if(error) {
+      console.log(error);
+    } else {
+      console.log('save '+recipe_id+' ingredient '+ingredient_id+': '+ingredient);
+    }
+  });
+}
+
+// Recipe_ingredient콜렉션에 데이터를 넣어줌
+function insertRecipeIngredient(recipe) {
   // 레시피에 알맞는 아이디 탐색
   Recipe.findOne({name: recipe.name}, function(error, same){
     if(error) {
@@ -76,7 +92,6 @@ function insertRecipeIngredient(recipe, callback) {
       }
     }
   });
-  callback();
 }
 
 // Recipe_ingredient콜렉션을 채우기 전 베이스가 되는 콜렉션(Recipe, Ingredient)에 먼저 데이터를 채워줌
@@ -140,9 +155,7 @@ fs.readFile('./items.json', 'utf8', function(error, data) {
     // 레시피 데이터들을 원하는 형태로 데이터베이스에 저장
     insertBase(obj, function() {
       for(var i in obj) {
-        insertRecipeIngredient(obj[i], function() {
-          console.log('save finish!!!!!');
-        });
+        insertRecipeIngredient(obj[i]);
       }
     });
 
