@@ -12,6 +12,7 @@ function insertRecipe(recipe) {
     img: recipe.img,
     amount: recipe.amount,
     order_count: recipe.order.length,
+    ingredient_count: recipe.main.length,
     main_ingredient: recipe.main,
     season_ingredient: recipe.season,
     main_amount: recipe.main_a,
@@ -70,26 +71,29 @@ function insertRecipeIngredient(recipe) {
       for(var j in recipe.main) {
         (function(recipe_id, recipe, j){
           // 재료에 알맞는 아이디 탐색 후 데이터를 넣어줌
-          Ingredient.findOne({name: recipe.main[j]}, function(error, same){
-            if(error) {
-              console.log('cannot find ingredient id!!\n'+error);
-            } else {
-              var recipe_ingredient = new Recipe_ingredient({
-                recipe_id: recipe_id,
-                ingredient_id: same.id,
-                ingredient_amount: recipe.main[j]
-              });
-              recipe_ingredient.save(function(error){
-                if(error) {
-                  console.log(error);
-                } else {
-                  console.log('save '+recipe_id+' ingredient '+same.id+': '+recipe.main[j]);
-                }
-              });
-            }
-          });
+          mappingId(recipe.main[j], recipe_id);
         })(same.id, recipe, j);
       }
+    }
+  });
+}
+function mappingId(ingredient, recipe_id) {
+  Ingredient.findOne({name: ingredient}, function(error, same){
+    if(error) {
+      console.log('cannot find ingredient id!!\n'+error);
+    } else {
+      var recipe_ingredient = new Recipe_ingredient({
+        recipe_id: recipe_id,
+        ingredient_id: same.id,
+        ingredient_amount: ingredient
+      });
+      recipe_ingredient.save(function(error){
+        if(error) {
+          console.log(error);
+        } else {
+          console.log('save '+recipe_id+' ingredient '+same.id+': '+ingredient);
+        }
+      });
     }
   });
 }
